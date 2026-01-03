@@ -5,7 +5,7 @@ import DataDisplay from './components/DataDisplay';
 
 function App() {
     // 仮のデータを定義
-    const [serverData, setServerData] = useState(null);
+    const [serverDataList, setServerDataList] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleFileUpload = async (e) => {
@@ -35,9 +35,10 @@ function App() {
             }
 
             const result = await response.json();
+
             console.log("サーバーからの応答:", result);
 
-            setServerData(result);
+            setServerDataList(prevList => [...prevList, result]);
         
         } catch (error) {
             console.error("Error:", error);
@@ -66,7 +67,11 @@ function App() {
             <div style={{ display: 'flex', gap: '20px' }}>
               {/* 左側:解析結果の文字表示 */}
               <div style={{ flex: '1', color: '#333' }}>
-                {serverData && <DataDisplay data={serverData.stats} />}
+                {serverDataList.map((data, index) => (
+                <div key={index} style={{ marginBottom: '10px' }}>
+                  <DataDisplay data={data.stats} />
+                </div>
+              ))}
               </div>
 
               {/* 右側:地図表示 */}
@@ -74,20 +79,20 @@ function App() {
                 <MapContainer
                   center={[35.681236, 139.767125]} // 東京駅の座標
                   zoom={6}
-                  style={{ height: '100%', width: '100%' }}
+                  style={{ height: '100%', width: '200%' }}
                   >
                     <TileLayer
                       attribution='&copy: <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
                         {/* サーバーからデータが届いたら地図上に描画 */}
-                        {serverData && serverData.data && (
+                        {serverDataList.map((data, index) => (
                             <GeoJSON
-                                key={serverData.stats.filename}
-                                data={serverData.data}
+                                key={data.stats.filename + index}
+                                data={data.data}
                                 style={{ color: 'blue', weight: 4 }}
                             />
-                        )}
+                        ))}
                 </MapContainer>
               </div>
             </div>
