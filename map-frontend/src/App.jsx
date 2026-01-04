@@ -7,26 +7,39 @@ function App() {
     // 仮のデータを定義
     const [serverDataList, setServerDataList] = useState([]);
 
-    {serverDataList.map((data, index) => (
-        // dataとdata.stasが存在する場合のみ描画
-        data && data.stats && (
-            <div key={index} style={{ marginBotom: '10px' }}>
-                <DataDisplay data={data.stats} />
-            </div>
-        )
-    ))}
-
     useEffect(() => {
+        let isMounted = true; // 二重実行防止フラグ
+
         const fetchSavedData = async () => {
             try {
                 const response = await fetch('http://localhost:3001/api/files');
-                const fileList = await response.json();
-                setServerDataList(fileList);
+                const fileNames = await response.json();
+
+                if (isMounted) setServerDataList([]);
+
+                for (const fileName of fileNames) {
+                    if (!isMounted) break;
+                    try {
+                        const safeName = encodeURIComponent(fileName);
+                        const res = await fetch(`http://localhost:3001/api/parse/${safeName}`);
+                        
+                        if (!res.ok) continue;
+                        const parsedData = await res.json();
+
+                        setServerDataList(prev => {
+                            const exists = prev.some(item => item.stats.serverFileName === parsedData.stats.serverFileName);
+                            return exists ? prev : [...prev, parsedData];
+                        });
+                    } catch (error) {
+                        console.error(`Failed to parse file ${fileName}:`, error);
+                    }
+                }
             } catch (error) {
                 console.error("Failed to fetch files:", error);
             }
         };
         fetchSavedData();
+        return () => { isMounted = false; };
     }, []);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -91,9 +104,11 @@ function App() {
               {/* 左側:解析結果の文字表示 */}
               <div style={{ flex: '1', color: '#333' }}>
                 {serverDataList.map((data, index) => (
-                <div key={index} style={{ marginBottom: '10px' }}>
+                data && data.stats && (
+                    <div key={index} style={{ marginBottom: '10px' }}>
                   <DataDisplay data={data.stats} />
                 </div>
+                )
               ))}
               </div>
 
@@ -110,11 +125,11 @@ function App() {
                         />
                         {/* サーバーからデータが届いたら地図上に描画 */}
                         {serverDataList.map((data, index) => (
-                            <GeoJSON
+                            data && data.data && (<GeoJSON
                                 key={data.stats.filename + index}
                                 data={data.data}
                                 style={{ color: 'blue', weight: 4 }}
-                            />
+                            />)
                         ))}
                 </MapContainer>
               </div>
