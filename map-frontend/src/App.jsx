@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import DataDisplay from './components/DataDisplay';
@@ -6,6 +6,29 @@ import DataDisplay from './components/DataDisplay';
 function App() {
     // 仮のデータを定義
     const [serverDataList, setServerDataList] = useState([]);
+
+    {serverDataList.map((data, index) => (
+        // dataとdata.stasが存在する場合のみ描画
+        data && data.stats && (
+            <div key={index} style={{ marginBotom: '10px' }}>
+                <DataDisplay data={data.stats} />
+            </div>
+        )
+    ))}
+
+    useEffect(() => {
+        const fetchSavedData = async () => {
+            try {
+                const response = await fetch('http://localhost:3001/api/files');
+                const fileList = await response.json();
+                setServerDataList(fileList);
+            } catch (error) {
+                console.error("Failed to fetch files:", error);
+            }
+        };
+        fetchSavedData();
+    }, []);
+
     const [isLoading, setIsLoading] = useState(false);
 
     const handleFileUpload = async (e) => {
@@ -46,7 +69,7 @@ function App() {
         } finally {
             setIsLoading(false);
         }
-    }
+    };
 
     return (
         <div className="App" style={{ padding: '20px'}}>
