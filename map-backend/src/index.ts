@@ -30,27 +30,38 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.get('/api/files', (req, res) => {
-    const files = fs.readdirSync(uploadDir);
+    try {
+        const files = fs.readdirSync(uploadDir);
+        console.log("送信するファイルリスト:",files); // debug
+        res.json(files);
+    } catch (error) {
+        res.status(500).json({ error: 'ファイル一覧の取得失敗'});
+    }
+});
 
-    const allData = files.map(filename => {
+app.get('/api/parse/:filename', (req, res) => {
+    try {
+        const filename = req.params.filename;
+        console.log("解析リスト:",filename); // debug
         const filePath = path.join(uploadDir, filename);
         const gpxString = fs.readFileSync(filePath, 'utf-8');
+
         const parser = new DOMParser();
         const gpxDom = parser.parseFromString(gpxString, 'text/xml');
         const geoJson = gpx(gpxDom);
         const distance = turf.length(geoJson, { units: 'kilometers' });
 
-        return {
+        res.json({
             stats: {
                 distanceKm: Math.round(distance * 100) / 100,
                 filename: filename.split('-').slice(1).join('-'), // 元のファイル名を取得
                 serverFileName: filename
             },
             data: geoJson
-        };
-    });
-
-    res.json(allData);
+        });
+    } catch (error) {
+        res.status(500).json({ error: '解析失敗' });
+    }
 });
 
 // @ts-ignore: expressの型定義の微細な不一致を無視
@@ -67,16 +78,16 @@ app.post('/api/upload', upload.single('file'), (req: Request, res: Response) => 
         const distance = turf.length(geoJson, { units: 'kilometers' });
 
         res.json({
-            message: '解析成功',
             stats: {
                 distanceKm: Math.round(distance * 100) / 100,
-                filename: req.file.originalname
+                filename: req.file.originalname,
+                serverFileName: req.file.filename
             },
             data: geoJson // 地図表示用の生データ
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'ファイルの解析中にエラーが発生しました' });
+        res.status(500).json({ error: '解析失敗' });
     }
 });
 
